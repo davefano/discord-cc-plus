@@ -59,6 +59,39 @@ Configure via `/discord-plus:commands` in your terminal session (enable/disable,
 
 > **Tip:** global commands can take up to an hour to appear the first time. For instant updates while testing, set a guild ID: `/discord-plus:commands guild <server-id>`.
 
+## Recommended Claude Code settings
+
+Discord bots feel best when Claude Code can work without repeatedly asking the
+Discord user to approve routine tool calls. Run the session from the project
+directory you want the bot to work in, and choose a permission mode that matches
+how much you trust that workspace.
+
+Good default for a personal bot in a trusted repo:
+
+```sh
+claude --channels plugin:discord-plus@discord-plus \
+  --permission-mode auto \
+  --effort high
+```
+
+More open, for disposable sandboxes or machines where you are comfortable with
+the bot acting without permission prompts:
+
+```sh
+claude --channels plugin:discord-plus@discord-plus \
+  --permission-mode bypassPermissions \
+  --effort max
+```
+
+`bypassPermissions` is intentionally powerful. Use it only in a workspace and
+machine context where Discord-triggered requests are allowed to read, edit, and
+run commands without a local confirmation step. For shared servers, keep channel
+access tight even if the Claude session itself is permissive.
+
+For long-running coding-agent behavior, use a persistent terminal/tmux session
+or a process manager, start Claude in the target repo, and opt in only the
+Discord channels that should be able to drive that workspace.
+
 ## Prerequisites
 
 - [Bun](https://bun.sh) — the MCP server runs on Bun. Install with `curl -fsSL https://bun.sh/install | bash`.
@@ -141,7 +174,7 @@ Pairing is for capturing IDs. Once you're in, switch to `allowlist` so strangers
 
 See **[ACCESS.md](./ACCESS.md)** for DM policies, guild channels, mention detection, delivery config, skill commands, and the `access.json` schema.
 
-Quick reference: IDs are Discord **snowflakes** (numeric — enable Developer Mode, right-click → Copy ID). Default policy is `pairing`. Guild channels are opt-in per channel ID.
+Quick reference: IDs are Discord **snowflakes** (numeric — enable Developer Mode, right-click → Copy ID). Default DM policy is `pairing`. Guild channels are opt-in per channel ID and ambient by default once enabled.
 
 ## Tools exposed to the assistant
 

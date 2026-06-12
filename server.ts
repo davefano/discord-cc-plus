@@ -518,7 +518,7 @@ async function gate(msg: Message): Promise<GateResult> {
   const policy = access.groups[channelId]
   if (!policy) return { action: 'drop' }
   const groupAllowFrom = policy.allowFrom ?? []
-  const requireMention = policy.requireMention ?? true
+  const requireMention = policy.requireMention ?? false
   if (groupAllowFrom.length > 0 && !groupAllowFrom.includes(senderId)) {
     return { action: 'drop' }
   }

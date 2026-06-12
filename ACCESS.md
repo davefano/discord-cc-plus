@@ -12,7 +12,8 @@ All state lives in `~/.claude/channels/discord/access.json`. The `/discord-plus:
 
 | | |
 | --- | --- |
-| Default policy | `pairing` |
+| Default DM policy | `pairing` |
+| Default guild channel mode | Ambient once opted in (`requireMention: false`) |
 | Sender ID | User snowflake (numeric, e.g. `123456789012345678`) |
 | Group key | Channel snowflake — not guild ID |
 | Config file | `~/.claude/channels/discord/access.json` |
@@ -50,10 +51,13 @@ Guild channels are off by default. Opt each one in individually, keyed on the **
 /discord-plus:access group add 234567890123456789
 ```
 
-With the default `requireMention: true`, the bot responds only when @mentioned or replied to. Pass `--no-mention` to process every message in the channel, or `--allow id1,id2` to restrict which members can trigger it.
+By default, an opted-in guild channel is ambient: the bot processes every
+message in that channel. Pass `--mention` when you want the bot to respond only
+when @mentioned or replied to, or `--allow id1,id2` to restrict which members
+can trigger it.
 
 ```
-/discord-plus:access group add 234567890123456789 --no-mention
+/discord-plus:access group add 234567890123456789 --mention
 /discord-plus:access group add 234567890123456789 --allow 123456789012345678,345678901234567890
 /discord-plus:access group rm 234567890123456789
 ```
@@ -99,7 +103,7 @@ Configure outbound behavior with `/discord-plus:access set <key> <value>`.
 | `/discord-plus:access allow 123456789012345678` | Add a user snowflake directly. |
 | `/discord-plus:access remove 123456789012345678` | Remove from the allowlist. |
 | `/discord-plus:access policy allowlist` | Set `dmPolicy`. Values: `pairing`, `allowlist`, `disabled`. |
-| `/discord-plus:access group add 234567890123456789` | Enable a guild channel. Flags: `--no-mention`, `--allow id1,id2`. |
+| `/discord-plus:access group add 234567890123456789` | Enable a guild channel. Flags: `--mention`, `--allow id1,id2`. |
 | `/discord-plus:access group rm 234567890123456789` | Disable a guild channel. |
 | `/discord-plus:access set ackReaction 🔨` | Set a config key: `ackReaction`, `replyToMode`, `textChunkLimit`, `chunkMode`, `mentionPatterns`. |
 
@@ -118,8 +122,9 @@ Configure outbound behavior with `/discord-plus:access set <key> <value>`.
   // Guild channels the bot is active in. Empty object = DM-only.
   "groups": {
     "234567890123456789": {
+      // false: process every message in this opted-in channel.
       // true: respond only to @mentions and replies.
-      "requireMention": true,
+      "requireMention": false,
       // Restrict triggers to these senders. Empty = any member (subject to requireMention).
       "allowFrom": []
     }

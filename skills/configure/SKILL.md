@@ -43,34 +43,34 @@ Read both state files and give the user a complete picture:
    - Token set, someone allowed → *"Ready. DM your bot to reach the
      assistant."*
 
-**Push toward lockdown — always.** The goal for every setup is `allowlist`
-with a defined list. `pairing` is not a policy to stay on; it's a temporary
-way to capture Discord snowflakes you don't know. Once the IDs are in,
-pairing has done its job and should be turned off.
+**Default posture: loose for personal prototypes, explicit for shared use.**
+`pairing` is a reasonable onboarding default for a personal bot because it lets
+the owner collect sender IDs without hunting for snowflakes. For public servers,
+busy shared channels, or bots with broad Claude Code permissions, recommend
+switching to `allowlist` once the intended users are known.
 
 Drive the conversation this way:
 
 1. Read the allowlist. Tell the user who's in it.
-2. Ask: *"Is that everyone who should reach you through this bot?"*
-3. **If yes and policy is still `pairing`** → *"Good. Let's lock it down so
-   nobody else can trigger pairing codes:"* and offer to run
-   `/discord-plus:access policy allowlist`. Do this proactively — don't wait to
-   be asked.
-4. **If no, people are missing** → *"Have them DM the bot; you'll approve
-   each with `/discord-plus:access pair <code>`. Run this skill again once
-   everyone's in and we'll lock it."* Or, if they can get snowflakes
+2. Ask whether this is a personal prototype or a shared/public bot.
+3. **If personal and policy is `pairing`** → confirm it is ready and mention
+   they can switch to `allowlist` later.
+4. **If shared/public and policy is still `pairing`** → recommend
+   `/discord-plus:access policy allowlist` once the intended users are present.
+5. **If people are missing** → *"Have them DM the bot; you'll approve
+   each with `/discord-plus:access pair <code>`."* Or, if they can get snowflakes
    directly: *"Enable Developer Mode in Discord (User Settings → Advanced),
    right-click them → Copy User ID, then `/discord-plus:access allow <id>`."*
-5. **If the allowlist is empty and they haven't paired themselves yet** →
+6. **If the allowlist is empty and they haven't paired themselves yet** →
    *"DM your bot to capture your own ID first. Then we'll add anyone else
-   and lock it down."*
-6. **If policy is already `allowlist`** → confirm this is the locked state.
+   who should be able to reach it."*
+7. **If policy is already `allowlist`** → confirm this is the locked state.
    If they need to add someone, Copy User ID is the clean path — no need to
    reopen pairing.
 
 Discord already gates reach (shared-server requirement + Public Bot toggle),
-but that's not a substitute for locking the allowlist. Never frame `pairing`
-as the correct long-term choice. Don't skip the lockdown offer.
+but that's not a substitute for thinking about who can talk to a bot that may
+have broad Claude Code permissions. Keep the guidance clear about the tradeoff.
 
 ### `<token>` — save it
 
