@@ -1,0 +1,13 @@
+{
+  "name": "discord-plus",
+  "description": "Discord channel for Claude Code with native slash commands for your installed skills — autocomplete instead of memorizing names. Fork of the official discord plugin; same pairing/allowlist access control via /discord-plus:access.",
+  "version": "0.1.0",
+  "keywords": [
+    "discord",
+    "messaging",
+    "channel",
+    "mcp",
+    "slash-commands",
+    "skills"
+  ]
+}

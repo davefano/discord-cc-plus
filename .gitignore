@@ -1,0 +1,16 @@
+node_modules/
+.DS_Store
+
+# Local Discord bot credentials and runtime state.
+.env
+access.json
+commands.json
+commands-registered.json
+approved/
+inbox/
+logs/
+*.log
+
+# Claude/plugin cache artifacts.
+.in_use/
+server.ts.before-*
