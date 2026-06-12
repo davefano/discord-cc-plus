@@ -1,4 +1,4 @@
-# Discord Plus
+# Discord CC Plus
 
 Connect a Discord bot to your Claude Code with an MCP server — with **native Discord slash commands** for your installed Claude Code skills.
 
@@ -15,12 +15,12 @@ When the bot receives a message, the MCP server forwards it to Claude and provid
 
 ## What this is
 
-Discord Plus is a Claude Code plugin that lets a Discord bot act as a channel
+Discord CC Plus is a Claude Code plugin that lets a Discord bot act as a channel
 into a local Claude Code session. Discord messages arrive in Claude as channel
 notifications, and Claude gets tools to send replies, edit its own messages, add
 reactions, fetch recent history, and download attachments when needed.
 
-The extra piece is slash commands. Discord Plus scans the skills available to
+The extra piece is slash commands. Discord CC Plus scans the skills available to
 your Claude Code session and exposes them as Discord application commands, so a
 Discord user can type `/` and discover what the assistant can do. It also
 includes a catch-all `/skill` command with autocomplete for larger skill sets.
@@ -100,7 +100,7 @@ Integration type: **Guild Install**. Copy the **Generated URL**, open it, and ad
 These are Claude Code commands — run `claude` to start a session first.
 
 ```
-/plugin marketplace add davefano/discord-plus
+/plugin marketplace add davefano/discord-cc-plus
 /plugin install discord-plus@discord-plus
 /reload-plugins
 ```
