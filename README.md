@@ -13,6 +13,35 @@ When the bot receives a message, the MCP server forwards it to Claude and provid
 
 > Fork of the official [`discord` plugin](https://github.com/anthropics/claude-plugins-official/tree/main/external_plugins/discord) (Apache-2.0). Same access control and tools; adds slash-command integration. **Don't run both plugins at once** — they'd open two gateway connections on the same token and double-reply. Disable `discord@claude-plugins-official` before enabling this one. State (token, pairing, allowlists) lives in the same `~/.claude/channels/discord/` directory, so switching over carries your config.
 
+## What this is
+
+Discord Plus is a Claude Code plugin that lets a Discord bot act as a channel
+into a local Claude Code session. Discord messages arrive in Claude as channel
+notifications, and Claude gets tools to send replies, edit its own messages, add
+reactions, fetch recent history, and download attachments when needed.
+
+The extra piece is slash commands. Discord Plus scans the skills available to
+your Claude Code session and exposes them as Discord application commands, so a
+Discord user can type `/` and discover what the assistant can do. It also
+includes a catch-all `/skill` command with autocomplete for larger skill sets.
+
+## Why this fork exists
+
+Anthropic's official Discord plugin is a solid base for routing Discord messages
+into Claude Code. This fork keeps that shape, but adds the parts we wanted for
+long-running agent workflows:
+
+- Native Discord slash-command registration for Claude Code skills.
+- Access controls for DMs and opted-in guild channels.
+- A typing loop and progress heartbeat for longer runs.
+- Attachment download and recent-history helpers.
+- Guardrails that keep access-management skills out of Discord-triggered slash
+  commands.
+
+This is intentionally still small and local-first. It is useful for experiments,
+personal bots, and agent prototypes. It is not trying to be a hosted Discord bot
+platform.
+
 ## Slash commands
 
 At gateway connect, the server:
