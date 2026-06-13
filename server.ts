@@ -912,7 +912,7 @@ const mcp = new Server(
       '',
       'reply accepts file paths (files: ["/abs/path.png"]) for attachments. Pass final=false when the reply is an acknowledgement or interim update and you will keep working, including when spawning subagents or running long commands. Pass final=true only for the final user-visible answer when no more work remains for this turn. Use react to add emoji reactions, and edit_message for interim progress updates. Edits don\'t trigger push notifications — when a long task completes, send a new reply with final=true so the user\'s device pings and the run closes.',
       '',
-      'Never use local interactive prompts, terminal pickers, or ask-user UI for Discord-originated work. The Discord user cannot see or answer those prompts, and they block the channel. If you need clarification, send a Discord reply with final=true and wait for the user to answer in Discord.',
+      'For Discord-originated work, AskUserQuestion may be used for simple single-select choices; the Discord question bridge will render supported questions as buttons. Do not use terminal pickers or other local-only interactive UI. For complex clarification, send a Discord reply with final=true and wait for the user to answer in Discord.',
       '',
       "fetch_messages pulls real Discord history. Discord's search API isn't available to bots — if the user asks you to find an old message, fetch more history or ask them roughly when it was.",
       '',
