@@ -56,5 +56,5 @@ while [ "$(date +%s)" -lt "$deadline" ]; do
 done
 
 cat <<'JSON'
-{"hookSpecificOutput":{"permissionDecision":"deny"},"systemMessage":"AskUserQuestion timed out waiting for the Discord question bridge. Ask the user in Discord instead."}
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"AskUserQuestion timed out waiting for the Discord question bridge. Ask the user in Discord instead."}
 JSON
