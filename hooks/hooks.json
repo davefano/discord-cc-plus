@@ -1,0 +1,17 @@
+{
+  "description": "Bridge Claude AskUserQuestion prompts into Discord when the Discord channel plugin is active.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/ask-user-question-bridge.sh\"",
+            "timeout": 1805
+          }
+        ]
+      }
+    ]
+  }
+}

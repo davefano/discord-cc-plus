@@ -63,6 +63,7 @@ if (!TOKEN) {
   process.exit(1)
 }
 const INBOX_DIR = join(STATE_DIR, 'inbox')
+const QUESTION_BRIDGE_DIR = join(STATE_DIR, 'question-bridge')
 
 // Last-resort safety net — without these the process dies silently on any
 // unhandled promise rejection. With them it logs and keeps serving tools.
@@ -142,6 +143,8 @@ const TYPING_REFRESH_MS = Math.max(
 const TYPING_TTL_MS = Math.max(0, Number(process.env.DISCORD_TYPING_TTL_MS ?? 6 * 60 * 60 * 1000))
 const FAILURE_WATCH_MS = Math.max(10_000, Number(process.env.DISCORD_FAILURE_WATCH_MS ?? 15_000))
 const CLAUDE_DEBUG_LOG = process.env.CLAUDE_DEBUG_LOG ?? join(STATE_DIR, 'logs', 'claude-debug.log')
+const QUESTION_BRIDGE_POLL_MS = Math.max(500, Number(process.env.DISCORD_QUESTION_BRIDGE_POLL_MS ?? 1000))
+const QUESTION_BRIDGE_TIMEOUT_MS = Math.max(60_000, Number(process.env.DISCORD_QUESTION_BRIDGE_TIMEOUT_MS ?? 30 * 60 * 1000))
 
 const RUN_FAILURE_PATTERNS: Array<{ re: RegExp; message: string }> = [
   {
@@ -264,6 +267,46 @@ type ActiveRun = {
 }
 
 const activeRuns = new Map<string, ActiveRun>()
+
+type AskUserQuestionOption = {
+  label: string
+  description: string
+  preview?: string
+}
+
+type AskUserQuestionItem = {
+  question: string
+  header: string
+  options: AskUserQuestionOption[]
+  multiSelect?: boolean
+}
+
+type AskUserQuestionInput = {
+  questions?: AskUserQuestionItem[]
+}
+
+type QuestionBridgeRequest = {
+  request_id: string
+  hook: {
+    session_id?: string
+    tool_name?: string
+    tool_input?: AskUserQuestionInput
+  }
+}
+
+type PendingQuestion = {
+  requestId: string
+  responsePath: string
+  chatId: string
+  messageId?: string
+  question: AskUserQuestionItem
+  questions: AskUserQuestionItem[]
+  resolve: (response: unknown) => void
+  timer: ReturnType<typeof setTimeout>
+}
+
+const pendingQuestionFiles = new Set<string>()
+const pendingQuestions = new Map<string, PendingQuestion>()
 
 type RunChannel = {
   sendTyping?: () => Promise<unknown>
@@ -454,6 +497,177 @@ async function markRunFailed(run: ActiveRun, reason: string): Promise<void> {
   } catch (err) {
     process.stderr.write(`discord channel: failure notification failed: ${err}\n`)
   }
+}
+
+function latestActiveRun(): ActiveRun | undefined {
+  return [...activeRuns.values()].sort((a, b) => b.startedAt - a.startedAt)[0]
+}
+
+function buildAskUserQuestionResponse(
+  questions: AskUserQuestionItem[],
+  question: AskUserQuestionItem,
+  option: AskUserQuestionOption,
+): unknown {
+  const annotations = option.preview
+    ? { [question.question]: { preview: option.preview } }
+    : undefined
+
+  return {
+    hookSpecificOutput: {
+      permissionDecision: 'allow',
+      updatedInput: {
+        questions,
+        answers: {
+          [question.question]: option.label,
+        },
+        ...(annotations ? { annotations } : {}),
+      },
+    },
+    systemMessage: 'AskUserQuestion was answered from Discord.',
+  }
+}
+
+function buildAskUserQuestionDeny(reason: string): unknown {
+  return {
+    hookSpecificOutput: {
+      permissionDecision: 'deny',
+    },
+    systemMessage: reason,
+  }
+}
+
+async function writeQuestionBridgeResponse(path: string, response: unknown): Promise<void> {
+  const tmp = `${path}.tmp`
+  writeFileSync(tmp, JSON.stringify(response) + '\n', { mode: 0o600 })
+  renameSync(tmp, path)
+}
+
+async function pollQuestionBridge(): Promise<void> {
+  let files: string[]
+  try {
+    files = readdirSync(QUESTION_BRIDGE_DIR).filter(f => f.endsWith('.request.json'))
+  } catch {
+    return
+  }
+
+  for (const file of files) {
+    const requestPath = join(QUESTION_BRIDGE_DIR, file)
+    if (pendingQuestionFiles.has(requestPath)) continue
+    pendingQuestionFiles.add(requestPath)
+
+    void handleQuestionBridgeRequest(requestPath).catch(err => {
+      pendingQuestionFiles.delete(requestPath)
+      process.stderr.write(`discord channel: question bridge failed: ${err}\n`)
+    })
+  }
+}
+
+async function handleQuestionBridgeRequest(requestPath: string): Promise<void> {
+  const responsePath = requestPath.replace(/\.request\.json$/, '.response.json')
+  let request: QuestionBridgeRequest
+  try {
+    request = JSON.parse(readFileSync(requestPath, 'utf8')) as QuestionBridgeRequest
+  } catch (err) {
+    process.stderr.write(`discord channel: invalid question bridge request ${requestPath}: ${err}\n`)
+    rmSync(requestPath, { force: true })
+    pendingQuestionFiles.delete(requestPath)
+    return
+  }
+
+  if (request.hook?.tool_name !== 'AskUserQuestion') {
+    await writeQuestionBridgeResponse(responsePath, {})
+    rmSync(requestPath, { force: true })
+    pendingQuestionFiles.delete(requestPath)
+    return
+  }
+
+  const run = latestActiveRun()
+  if (!run) {
+    await writeQuestionBridgeResponse(
+      responsePath,
+      buildAskUserQuestionDeny('AskUserQuestion was blocked because no active Discord run was found. Ask the user in Discord instead.'),
+    )
+    rmSync(requestPath, { force: true })
+    pendingQuestionFiles.delete(requestPath)
+    return
+  }
+
+  const questions = request.hook.tool_input?.questions ?? []
+  const question = questions[0]
+  if (!question || questions.length !== 1 || question.multiSelect || question.options.length < 2 || question.options.length > 4) {
+    await writeQuestionBridgeResponse(
+      responsePath,
+      buildAskUserQuestionDeny('AskUserQuestion was blocked because the Discord bridge currently supports one single-select question with 2-4 options. Ask the user in Discord instead.'),
+    )
+    rmSync(requestPath, { force: true })
+    pendingQuestionFiles.delete(requestPath)
+    return
+  }
+
+  const response = await presentAskUserQuestion(request.request_id, responsePath, run.chatId, questions, question)
+  await writeQuestionBridgeResponse(responsePath, response)
+  rmSync(requestPath, { force: true })
+  pendingQuestionFiles.delete(requestPath)
+}
+
+async function presentAskUserQuestion(
+  requestId: string,
+  responsePath: string,
+  chatId: string,
+  questions: AskUserQuestionItem[],
+  question: AskUserQuestionItem,
+): Promise<unknown> {
+  return await new Promise(resolve => {
+    const timer = setTimeout(() => {
+      pendingQuestions.delete(requestId)
+      resolve(buildAskUserQuestionDeny('AskUserQuestion timed out waiting for a Discord answer. Ask the user in Discord instead.'))
+    }, QUESTION_BRIDGE_TIMEOUT_MS)
+    timer.unref?.()
+
+    pendingQuestions.set(requestId, {
+      requestId,
+      responsePath,
+      chatId,
+      question,
+      questions,
+      resolve,
+      timer,
+    })
+
+    void (async () => {
+      try {
+        const ch = await fetchAllowedChannel(chatId)
+        if (!('send' in ch)) throw new Error('channel is not sendable')
+
+        const content = [
+          `Claude has a question: ${question.question}`,
+          '',
+          ...question.options.map((opt, i) => `${i + 1}. ${opt.label} — ${opt.description}`),
+        ].join('\n')
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+          ...question.options.map((opt, i) =>
+            new ButtonBuilder()
+              .setCustomId(`askq:${i}:${requestId}`)
+              .setLabel(opt.label.slice(0, 80))
+              .setStyle(i === 0 ? ButtonStyle.Primary : ButtonStyle.Secondary),
+          ),
+        )
+        const sent = await ch.send({ content, components: [row] })
+        noteSent(sent.id)
+        const pending = pendingQuestions.get(requestId)
+        if (pending) pending.messageId = sent.id
+      } catch (err) {
+        pendingQuestions.delete(requestId)
+        clearTimeout(timer)
+        resolve(buildAskUserQuestionDeny(`AskUserQuestion Discord bridge failed: ${err instanceof Error ? err.message : String(err)}. Ask the user in Discord instead.`))
+      }
+    })()
+  })
+}
+
+if (!STATIC) {
+  mkdirSync(QUESTION_BRIDGE_DIR, { recursive: true, mode: 0o700 })
+  setInterval(() => void pollQuestionBridge(), QUESTION_BRIDGE_POLL_MS).unref()
 }
 
 // Track message IDs we recently sent, so reply-to-bot in guild channels
@@ -1051,6 +1265,51 @@ client.on('interactionCreate', async (interaction: Interaction) => {
   // twice and the chat history shows what was chosen.
   await interaction
     .update({ content: `${interaction.message.content}\n\n${label}`, components: [] })
+    .catch(() => {})
+})
+
+// Button-click handler for AskUserQuestion bridge prompts. These are not
+// regular MCP messages; a Claude PreToolUse hook drops the question into
+// STATE_DIR/question-bridge and waits for this response.
+client.on('interactionCreate', async (interaction: Interaction) => {
+  if (!interaction.isButton()) return
+  const m = /^askq:(\d+):([A-Za-z0-9_-]+)$/.exec(interaction.customId)
+  if (!m) return
+
+  const threadParentId =
+    interaction.channel?.isThread() ? interaction.channel.parentId : null
+  if (!interactionAllowed(interaction.user.id, interaction.inGuild(), interaction.channelId, threadParentId)) {
+    await interaction.reply({ content: 'Not authorized.', ephemeral: true }).catch(() => {})
+    return
+  }
+
+  const optionIndex = Number(m[1])
+  const requestId = m[2]!
+  const pending = pendingQuestions.get(requestId)
+  if (!pending) {
+    await interaction.reply({ content: 'Question is no longer pending.', ephemeral: true }).catch(() => {})
+    return
+  }
+  if (pending.chatId !== interaction.channelId) {
+    await interaction.reply({ content: 'Question belongs to a different channel.', ephemeral: true }).catch(() => {})
+    return
+  }
+
+  const option = pending.question.options[optionIndex]
+  if (!option) {
+    await interaction.reply({ content: 'Invalid option.', ephemeral: true }).catch(() => {})
+    return
+  }
+
+  pendingQuestions.delete(requestId)
+  clearTimeout(pending.timer)
+  pending.resolve(buildAskUserQuestionResponse(pending.questions, pending.question, option))
+
+  await interaction
+    .update({
+      content: `${interaction.message.content}\n\nSelected by ${interaction.user.username}: ${option.label}`,
+      components: [],
+    })
     .catch(() => {})
 })
 

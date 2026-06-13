@@ -189,6 +189,24 @@ Quick reference: IDs are Discord **snowflakes** (numeric — enable Developer Mo
 Inbound messages trigger a typing indicator automatically — Discord shows
 "botname is typing…" while the assistant works on a response.
 
+## Claude questions
+
+Claude Code can ask structured questions with `AskUserQuestion`. In terminal
+sessions those render as local choice prompts, which a Discord user cannot see.
+
+`discord-cc-plus` includes a companion `PreToolUse` hook that bridges simple
+single-choice `AskUserQuestion` prompts into Discord:
+
+1. Claude calls `AskUserQuestion`.
+2. The hook writes the question into the channel state directory.
+3. The Discord plugin posts the choices as buttons in the active Discord channel.
+4. A permitted Discord user clicks an answer.
+5. The hook returns that answer to Claude so the original run can continue.
+
+Current prototype limits: one single-select question with 2-4 options. More
+complex question sets are blocked with guidance for Claude to ask in Discord
+directly.
+
 ## Attachments
 
 Attachments are **not** auto-downloaded. The `<channel>` notification lists
