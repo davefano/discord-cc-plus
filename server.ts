@@ -514,6 +514,7 @@ function buildAskUserQuestionResponse(
 
   return {
     hookSpecificOutput: {
+      hookEventName: 'PreToolUse',
       permissionDecision: 'allow',
       updatedInput: {
         questions,
@@ -530,6 +531,7 @@ function buildAskUserQuestionResponse(
 function buildAskUserQuestionDeny(reason: string): unknown {
   return {
     hookSpecificOutput: {
+      hookEventName: 'PreToolUse',
       permissionDecision: 'deny',
     },
     systemMessage: reason,
