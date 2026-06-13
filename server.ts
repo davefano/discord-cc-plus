@@ -152,6 +152,10 @@ const RUN_FAILURE_PATTERNS: Array<{ re: RegExp; message: string }> = [
     re: /authentication_error|mcp_unauthorized_no_token|token_expired|OAuth token.*failed/i,
     message: 'Claude hit an authentication error before it could send a final reply. The session may need re-authentication.',
   },
+  {
+    re: /not_found_error|model .*not available|may not exist or you may not have access|Run \/model to pick a different model/i,
+    message: 'Claude hit a model availability error before it could send a final reply. Pick an available model or restart the session with a supported --model.',
+  },
 ]
 
 let debugLogOffset = (() => {
